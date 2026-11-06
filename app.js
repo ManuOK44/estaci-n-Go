@@ -56,7 +56,7 @@ function openWallet(mode){
   $('#wallet-dialog-heading').textContent=mode==='income'?'Agregar ingreso':'Registrar gasto';
   $('#wallet-description').value='';
   $('#wallet-description').placeholder=mode==='income'?'Ej. Cobro, dinero recibido':'Ej. Negrito, gasolina, comida';
-  $('#wallet-amount').value='';
+  $('#wallet-amount').value='0';
   $('#wallet-dialog').showModal();
 }
 $('#wallet-initial').onclick=()=>{
@@ -92,7 +92,7 @@ document.addEventListener('click',e=>{
 
 function render(){renderWallet();document.body.classList.toggle('light',db.theme==='light');$('#theme').textContent=db.theme==='light'?'☾ Oscuro':'☀ Claro';const mine=db.orders.filter(x=>!x.riderId),mineDate=$('#mine-date').value||today();$('#mine-stats').innerHTML=cards(mine,mineDate,true,null);renderCuts(null,'#mine-cuts');listOrders(mine.filter(x=>x.date===mineDate),'#mine-orders');const showArchive=$('#show-archived').checked,available=db.riders.filter(x=>showArchive||!x.archived);if(!available.some(x=>x.id===selectedRider))selectedRider=available[0]?.id||'';$('#rider-select').innerHTML=available.length?available.map(r=>`<option value="${safe(r.id)}">${safe(r.name)}${r.archived?' (archivado)':''}</option>`).join(''):'<option value="">Sin repartidores</option>';$('#rider-select').value=selectedRider;let rider=db.riders.find(x=>x.id===selectedRider);$('#rider-detail').hidden=!rider;$('#rider-empty').hidden=!!rider;if(rider){$('#archive-rider').textContent=rider.archived?'Restaurar':'Archivar';$('#add-rider-order').disabled=!!rider.archived;const orders=db.orders.filter(x=>x.riderId===rider.id),dt=$('#rider-date').value||today();$('#rider-stats').innerHTML=cards(orders,dt,false,rider.id);renderCuts(rider.id,'#rider-cuts');listOrders(orders.filter(x=>x.date===dt),'#rider-orders')}}
 function showView(view){$('#mine').hidden=view!=='mine';$('#riders').hidden=view!=='riders';$('#wallet').hidden=view!=='wallet';document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('selected',x.dataset.view===view));render()}
-function openOrder(mode,order=null){orderMode=mode;editOrder=order?.id||null;$('#order-heading').textContent=order?'Editar envío':'Nuevo envío';$('#order-business').value=order?.business||'';$('#order-amount').value=order?.amount??'';$('#order-tip').value=order?.tip??'';$('#order-date').value=order?.date||today();$('#order-count').value=order?.count||1;$('#tip-field').hidden=mode!=='mine';preview();$('#order-dialog').showModal()}
+function openOrder(mode,order=null){orderMode=mode;editOrder=order?.id||null;$('#order-heading').textContent=order?'Editar envío':'Nuevo envío';$('#order-business').value=order?.business||'';$('#order-amount').value=order?.amount??'0';$('#order-tip').value=order?.tip??'0';$('#order-date').value=order?.date||today();$('#order-count').value=order?.count||1;$('#tip-field').hidden=mode!=='mine';preview();$('#order-dialog').showModal()}
 function preview(){let amount=Number($('#order-amount').value)||0,tip=orderMode==='mine'?Number($('#order-tip').value)||0:0;const count=Number($('#order-count').value)||1;$('#order-preview').textContent='Total del viaje: '+money(amount+tip)+' · '+count+' pedido'+(count===1?'':'s')}
 $('#order-form').addEventListener('submit',e=>{e.preventDefault();const amount=Number($('#order-amount').value),tip=orderMode==='mine'?Number($('#order-tip').value||0):0,count=Number($('#order-count').value),date=$('#order-date').value,time=editOrder?(db.orders.find(x=>x.id===editOrder)?.time||new Date().toTimeString().slice(0,5)):new Date().toTimeString().slice(0,5);if(!Number.isFinite(amount)||!Number.isFinite(tip)||amount<0||tip<0||!Number.isInteger(count)||count<1||count>100||!date||!time)return notify('Revisa los montos y la fecha.');let rid=orderMode==='mine'?null:selectedRider;if(orderMode==='rider'&&!db.riders.some(x=>x.id===rid&&!x.archived))return notify('Selecciona un repartidor activo');let record={id:editOrder||id(),riderId:rid,amount,tip,count,business:$('#order-business').value.trim(),date,time};if(commit(()=>{if(editOrder){const idx=db.orders.findIndex(x=>x.id===editOrder);if(idx>=0){record.riderId=db.orders[idx].riderId;db.orders[idx]=record}}else db.orders.push(record)})){$('#order-dialog').close();notify('Envío guardado')}});
 $('#order-amount').addEventListener('input',preview);$('#order-tip').addEventListener('input',preview);$('#order-count').addEventListener('input',preview);
@@ -109,4 +109,20 @@ document.addEventListener('click',e=>{const edit=e.target.closest('[data-edit]')
 $('#theme').onclick=()=>commit(()=>db.theme=db.theme==='light'?'dark':'light');
 $('#export').onclick=()=>{const file=new Blob([JSON.stringify({...db,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}),url=URL.createObjectURL(file),a=document.createElement('a');a.href=url;a.download='estacion-envios-respaldo-'+today()+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)};
 $('#import').onclick=()=>$('#import-file').click();$('#import-file').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const d=JSON.parse(await file.text());if(d.version!==1||!Array.isArray(d.riders)||!Array.isArray(d.orders)||d.orders.some(o=>typeof o.id!=='string'||typeof o.amount!=='number'||!Number.isFinite(o.amount)||typeof o.date!=='string'||!/^\d{4}-\d\d-\d\d$/.test(o.date))||d.riders.some(r=>typeof r.id!=='string'||typeof r.name!=='string'))throw Error('Formato incorrecto');if(!confirm('Importar reemplazará TODOS los datos actuales de esta aplicación. ¿Continuar?'))return;commit(()=>{db={version:1,riders:d.riders,orders:d.orders,cuts:Array.isArray(d.cuts)?d.cuts:[],theme:d.theme==='light'?'light':'dark',wallet:d.wallet&&Number.isFinite(Number(d.wallet.initial))&&Number(d.wallet.initial)>=0&&Array.isArray(d.wallet.movements)&&d.wallet.movements.every(x=>x&&typeof x.id==='string'&&typeof x.description==='string'&&['income','expense'].includes(x.type)&&typeof x.amount==='number'&&Number.isFinite(x.amount)&&x.amount>0&&typeof x.at==='string')?{initial:Number(d.wallet.initial),movements:d.wallet.movements}:{initial:0,movements:[]}}});notify('Respaldo importado')}catch{notify('No se pudo importar el archivo. Revisa que sea un respaldo válido.')}finally{e.target.value=''}};
+
+// Facilita escribir cantidades en iPhone: el cero inicial desaparece al tocar
+// el campo, sin tener que seleccionarlo ni borrarlo a mano.
+document.addEventListener('focusin',e=>{
+  const field=e.target;
+  if(field instanceof HTMLInputElement&&field.type==='number'&&Number(field.value)===0&&field.value.trim()!==''){
+    field.value='';
+  }
+});
+document.addEventListener('focusout',e=>{
+  const field=e.target;
+  if(field instanceof HTMLInputElement&&field.type==='number'&&field.value.trim()===''){
+    field.value='0';
+  }
+});
+
 render();if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
