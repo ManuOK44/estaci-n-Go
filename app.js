@@ -1,9 +1,12 @@
 'use strict';
 const KEY='estacion_envios_v1', $=s=>document.querySelector(s);
-const fresh=()=>({version:1,riders:[],orders:[],cuts:[],theme:'dark'});
+const fresh=()=>({version:1,riders:[],orders:[],cuts:[],theme:'dark',wallet:{initial:0,movements:[]}});
 let db;try{db=JSON.parse(localStorage.getItem(KEY))||fresh();if(!Array.isArray(db.riders)||!Array.isArray(db.orders))throw Error('Datos inválidos')}catch{db=fresh();}
 if(!Array.isArray(db.cuts))db.cuts=[];
-let selectedRider='',editOrder=null,editRider=null,orderMode='mine';
+if(!db.wallet||typeof db.wallet!=='object'||!Array.isArray(db.wallet.movements))db.wallet={initial:0,movements:[]};
+if(!Number.isFinite(Number(db.wallet.initial))||Number(db.wallet.initial)<0)db.wallet.initial=0;
+
+let selectedRider='',editOrder=null,editRider=null,orderMode='mine',walletMode='income';
 const localDay=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
 const today=()=>localDay(new Date());
 const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -30,8 +33,65 @@ function resetWeek(riderId){const rider=riderId?db.riders.find(r=>r.id===riderId
 const countOrders=items=>items.reduce((a,x)=>a+(Number.isInteger(Number(x.count))&&Number(x.count)>0?Number(x.count):1),0);
 function cards(items,date,includeTip,riderId){let day=periodItems(items,date,'day'),week=activeWeek(items,date,riderId),month=periodItems(items,date,'month');const box=(label,value,wide=false)=>`<div class="card${wide?' wide':''}"><small>${label}</small><strong>${value}</strong></div>`;return box('Ganancia del día',money(sum(day,'amount')+sum(day,'tip')),true)+box('Pedidos del día',countOrders(day))+box('Propinas del día',includeTip?money(sum(day,'tip')):'No aplica')+box('Ganancia semanal',money(sum(week,'amount')+sum(week,'tip')))+box('Pedidos de la semana',countOrders(week))+box('Ganancia mensual',money(sum(month,'amount')+sum(month,'tip')))+box('Pedidos del mes',countOrders(month))}
 function listOrders(items,container){const target=$(container);if(!items.length){target.innerHTML='<p class="empty">No hay pedidos registrados en este día.</p>';return}target.innerHTML=items.slice().sort((a,b)=>(b.date+'T'+b.time).localeCompare(a.date+'T'+a.time)).map(o=>`<article class="entry"><div><strong>${safe(o.business||'Envío')}</strong><small>${safe(o.date)} · ${safe(hora12(o.time))} · ${Number(o.count)||1} pedido${Number(o.count)===1||!o.count?'':'s'} · Envío ${money(o.amount)}${o.riderId?'':` · Propina ${money(o.tip)}`}</small></div><div><div class="price">${money(o.amount+o.tip)}</div><div class="actions"><button data-edit="${safe(o.id)}">Editar</button><button data-delete="${safe(o.id)}">Borrar</button></div></div></article>`).join('')}
-function render(){document.body.classList.toggle('light',db.theme==='light');$('#theme').textContent=db.theme==='light'?'☾ Oscuro':'☀ Claro';const mine=db.orders.filter(x=>!x.riderId),mineDate=$('#mine-date').value||today();$('#mine-stats').innerHTML=cards(mine,mineDate,true,null);renderCuts(null,'#mine-cuts');listOrders(mine.filter(x=>x.date===mineDate),'#mine-orders');const showArchive=$('#show-archived').checked,available=db.riders.filter(x=>showArchive||!x.archived);if(!available.some(x=>x.id===selectedRider))selectedRider=available[0]?.id||'';$('#rider-select').innerHTML=available.length?available.map(r=>`<option value="${safe(r.id)}">${safe(r.name)}${r.archived?' (archivado)':''}</option>`).join(''):'<option value="">Sin repartidores</option>';$('#rider-select').value=selectedRider;let rider=db.riders.find(x=>x.id===selectedRider);$('#rider-detail').hidden=!rider;$('#rider-empty').hidden=!!rider;if(rider){$('#archive-rider').textContent=rider.archived?'Restaurar':'Archivar';$('#add-rider-order').disabled=!!rider.archived;const orders=db.orders.filter(x=>x.riderId===rider.id),dt=$('#rider-date').value||today();$('#rider-stats').innerHTML=cards(orders,dt,false,rider.id);renderCuts(rider.id,'#rider-cuts');listOrders(orders.filter(x=>x.date===dt),'#rider-orders')}}
-function showView(view){$('#mine').hidden=view!=='mine';$('#riders').hidden=view!=='riders';document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('selected',x.dataset.view===view));render()}
+
+/* Cartera separada de envíos y repartidores; se incluye en los respaldos de Estación Go. */
+function renderWallet(){
+  const w=db.wallet;
+  const income=w.movements.filter(x=>x.type==='income').reduce((n,x)=>n+Number(x.amount),0);
+  const expenses=w.movements.filter(x=>x.type==='expense').reduce((n,x)=>n+Number(x.amount),0);
+  $('#wallet-balance').textContent=money(Number(w.initial)+income-expenses);
+  $('#wallet-income').textContent=money(income);
+  $('#wallet-expenses').textContent=money(expenses);
+  const target=$('#wallet-movements');
+  const items=w.movements.slice().sort((a,b)=>b.at.localeCompare(a.at));
+  target.innerHTML=items.length?items.map(x=>{
+    const ingreso=x.type==='income',amount=(ingreso?'+':'−')+money(x.amount);
+    const stamp=new Date(x.at);
+    const date=Number.isNaN(stamp.getTime())?'':stamp.toLocaleString('es-MX',{dateStyle:'short',timeStyle:'short'});
+    return '<article class="entry wallet-entry"><div><strong>'+safe(x.description)+'</strong><small>'+safe(date)+' · '+(ingreso?'Ingreso':'Gasto')+'</small></div><div><div class="wallet-amount '+(ingreso?'wallet-positive':'wallet-negative')+'">'+amount+'</div><div class="actions"><button type="button" data-wallet-delete="'+safe(x.id)+'">Borrar</button></div></div></article>';
+  }).join(''):'<p class="empty">Todavía no registras ingresos ni gastos.</p>';
+}
+function openWallet(mode){
+  walletMode=mode;
+  $('#wallet-dialog-heading').textContent=mode==='income'?'Agregar ingreso':'Registrar gasto';
+  $('#wallet-description').value='';
+  $('#wallet-description').placeholder=mode==='income'?'Ej. Cobro, dinero recibido':'Ej. Negrito, gasolina, comida';
+  $('#wallet-amount').value='';
+  $('#wallet-dialog').showModal();
+}
+$('#wallet-initial').onclick=()=>{
+  $('#wallet-initial-amount').value=db.wallet.initial;
+  $('#wallet-initial-dialog').showModal();
+};
+$('#wallet-add-income').onclick=()=>openWallet('income');
+$('#wallet-add-expense').onclick=()=>openWallet('expense');
+$('#wallet-initial-form').addEventListener('submit',e=>{
+  e.preventDefault();
+  const raw=$('#wallet-initial-amount').value,amount=Number(raw);
+  if(!raw||!Number.isFinite(amount)||amount<0)return notify('Ingresa un capital válido.');
+  if(commit(()=>{db.wallet.initial=amount})){
+    $('#wallet-initial-dialog').close();notify('Capital inicial guardado.');
+  }
+});
+$('#wallet-form').addEventListener('submit',e=>{
+  e.preventDefault();
+  const description=$('#wallet-description').value.trim(),raw=$('#wallet-amount').value,amount=Number(raw);
+  if(!description||!raw||!Number.isFinite(amount)||amount<=0)return notify('Escribe un concepto y una cantidad válida.');
+  if(commit(()=>db.wallet.movements.push({id:id(),type:walletMode,description,amount,at:new Date().toISOString()}))){
+    $('#wallet-dialog').close();notify(walletMode==='income'?'Ingreso guardado.':'Gasto guardado.');
+  }
+});
+document.addEventListener('click',e=>{
+  const del=e.target.closest('[data-wallet-delete]');
+  if(!del)return;
+  const movement=db.wallet.movements.find(x=>x.id===del.dataset.walletDelete);
+  if(movement&&confirm('¿Eliminar el movimiento "'+movement.description+'"?')){
+    if(commit(()=>{db.wallet.movements=db.wallet.movements.filter(x=>x.id!==movement.id)}))notify('Movimiento eliminado.');
+  }
+});
+
+function render(){renderWallet();document.body.classList.toggle('light',db.theme==='light');$('#theme').textContent=db.theme==='light'?'☾ Oscuro':'☀ Claro';const mine=db.orders.filter(x=>!x.riderId),mineDate=$('#mine-date').value||today();$('#mine-stats').innerHTML=cards(mine,mineDate,true,null);renderCuts(null,'#mine-cuts');listOrders(mine.filter(x=>x.date===mineDate),'#mine-orders');const showArchive=$('#show-archived').checked,available=db.riders.filter(x=>showArchive||!x.archived);if(!available.some(x=>x.id===selectedRider))selectedRider=available[0]?.id||'';$('#rider-select').innerHTML=available.length?available.map(r=>`<option value="${safe(r.id)}">${safe(r.name)}${r.archived?' (archivado)':''}</option>`).join(''):'<option value="">Sin repartidores</option>';$('#rider-select').value=selectedRider;let rider=db.riders.find(x=>x.id===selectedRider);$('#rider-detail').hidden=!rider;$('#rider-empty').hidden=!!rider;if(rider){$('#archive-rider').textContent=rider.archived?'Restaurar':'Archivar';$('#add-rider-order').disabled=!!rider.archived;const orders=db.orders.filter(x=>x.riderId===rider.id),dt=$('#rider-date').value||today();$('#rider-stats').innerHTML=cards(orders,dt,false,rider.id);renderCuts(rider.id,'#rider-cuts');listOrders(orders.filter(x=>x.date===dt),'#rider-orders')}}
+function showView(view){$('#mine').hidden=view!=='mine';$('#riders').hidden=view!=='riders';$('#wallet').hidden=view!=='wallet';document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('selected',x.dataset.view===view));render()}
 function openOrder(mode,order=null){orderMode=mode;editOrder=order?.id||null;$('#order-heading').textContent=order?'Editar envío':'Nuevo envío';$('#order-business').value=order?.business||'';$('#order-amount').value=order?.amount??'';$('#order-tip').value=order?.tip??'';$('#order-date').value=order?.date||today();$('#order-count').value=order?.count||1;$('#tip-field').hidden=mode!=='mine';preview();$('#order-dialog').showModal()}
 function preview(){let amount=Number($('#order-amount').value)||0,tip=orderMode==='mine'?Number($('#order-tip').value)||0:0;const count=Number($('#order-count').value)||1;$('#order-preview').textContent='Total del viaje: '+money(amount+tip)+' · '+count+' pedido'+(count===1?'':'s')}
 $('#order-form').addEventListener('submit',e=>{e.preventDefault();const amount=Number($('#order-amount').value),tip=orderMode==='mine'?Number($('#order-tip').value||0):0,count=Number($('#order-count').value),date=$('#order-date').value,time=editOrder?(db.orders.find(x=>x.id===editOrder)?.time||new Date().toTimeString().slice(0,5)):new Date().toTimeString().slice(0,5);if(!Number.isFinite(amount)||!Number.isFinite(tip)||amount<0||tip<0||!Number.isInteger(count)||count<1||count>100||!date||!time)return notify('Revisa los montos y la fecha.');let rid=orderMode==='mine'?null:selectedRider;if(orderMode==='rider'&&!db.riders.some(x=>x.id===rid&&!x.archived))return notify('Selecciona un repartidor activo');let record={id:editOrder||id(),riderId:rid,amount,tip,count,business:$('#order-business').value.trim(),date,time};if(commit(()=>{if(editOrder){const idx=db.orders.findIndex(x=>x.id===editOrder);if(idx>=0){record.riderId=db.orders[idx].riderId;db.orders[idx]=record}}else db.orders.push(record)})){$('#order-dialog').close();notify('Envío guardado')}});
@@ -48,5 +108,5 @@ document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>showView(b.dat
 document.addEventListener('click',e=>{const edit=e.target.closest('[data-edit]'),del=e.target.closest('[data-delete]');if(edit){let o=db.orders.find(x=>x.id===edit.dataset.edit);if(o)openOrder(o.riderId?'rider':'mine',o)}if(del){let o=db.orders.find(x=>x.id===del.dataset.delete);if(o&&confirm('¿Eliminar este pedido definitivamente?'))commit(()=>db.orders=db.orders.filter(x=>x.id!==o.id))}});
 $('#theme').onclick=()=>commit(()=>db.theme=db.theme==='light'?'dark':'light');
 $('#export').onclick=()=>{const file=new Blob([JSON.stringify({...db,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}),url=URL.createObjectURL(file),a=document.createElement('a');a.href=url;a.download='estacion-envios-respaldo-'+today()+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)};
-$('#import').onclick=()=>$('#import-file').click();$('#import-file').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const d=JSON.parse(await file.text());if(d.version!==1||!Array.isArray(d.riders)||!Array.isArray(d.orders)||d.orders.some(o=>typeof o.id!=='string'||typeof o.amount!=='number'||!Number.isFinite(o.amount)||typeof o.date!=='string'||!/^\d{4}-\d\d-\d\d$/.test(o.date))||d.riders.some(r=>typeof r.id!=='string'||typeof r.name!=='string'))throw Error('Formato incorrecto');if(!confirm('Importar reemplazará TODOS los datos actuales de esta aplicación. ¿Continuar?'))return;commit(()=>{db={version:1,riders:d.riders,orders:d.orders,cuts:Array.isArray(d.cuts)?d.cuts:[],theme:d.theme==='light'?'light':'dark'}});notify('Respaldo importado')}catch{notify('No se pudo importar el archivo. Revisa que sea un respaldo válido.')}finally{e.target.value=''}};
+$('#import').onclick=()=>$('#import-file').click();$('#import-file').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const d=JSON.parse(await file.text());if(d.version!==1||!Array.isArray(d.riders)||!Array.isArray(d.orders)||d.orders.some(o=>typeof o.id!=='string'||typeof o.amount!=='number'||!Number.isFinite(o.amount)||typeof o.date!=='string'||!/^\d{4}-\d\d-\d\d$/.test(o.date))||d.riders.some(r=>typeof r.id!=='string'||typeof r.name!=='string'))throw Error('Formato incorrecto');if(!confirm('Importar reemplazará TODOS los datos actuales de esta aplicación. ¿Continuar?'))return;commit(()=>{db={version:1,riders:d.riders,orders:d.orders,cuts:Array.isArray(d.cuts)?d.cuts:[],theme:d.theme==='light'?'light':'dark',wallet:d.wallet&&Number.isFinite(Number(d.wallet.initial))&&Number(d.wallet.initial)>=0&&Array.isArray(d.wallet.movements)&&d.wallet.movements.every(x=>x&&typeof x.id==='string'&&typeof x.description==='string'&&['income','expense'].includes(x.type)&&typeof x.amount==='number'&&Number.isFinite(x.amount)&&x.amount>0&&typeof x.at==='string')?{initial:Number(d.wallet.initial),movements:d.wallet.movements}:{initial:0,movements:[]}}});notify('Respaldo importado')}catch{notify('No se pudo importar el archivo. Revisa que sea un respaldo válido.')}finally{e.target.value=''}};
 render();if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
