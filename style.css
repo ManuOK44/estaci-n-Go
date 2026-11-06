@@ -11,3 +11,28 @@
 @media(max-width:370px){#order-dialog{padding:16px;width:calc(100% - 20px);}}
 
 .reset-tools{display:flex;justify-content:flex-end;margin:-5px 0 14px}.reset-tools button{font-size:13px}.cut-history{display:grid;gap:8px}.cut-entry{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}.cut-entry strong{font-size:13px}.cut-entry small{display:block;font-size:12px;color:var(--muted);margin-top:5px}.cut-empty{font-size:13px;color:var(--muted);margin:0 0 12px}
+
+/* Cartera: tercera sección independiente */
+.tabs .tab{min-width:0;padding:12px 5px;font-size:13px}
+.wallet-subtitle{color:var(--muted);font-size:13px;margin:5px 0 0}
+.wallet-balance{background:linear-gradient(125deg,#14532d,#1e293b);border:1px solid #166534;padding:22px 20px;border-radius:19px;margin-bottom:14px;color:#fff}
+.wallet-balance span,.wallet-balance small{display:block;color:#bbf7d0;font-size:13px}
+.wallet-balance strong{display:block;font-size:clamp(28px,8vw,40px);color:#86efac;margin:12px 0 15px;overflow-wrap:anywhere}
+.wallet-balance small{font-size:11px}
+.wallet-stats .card strong{font-size:20px}
+.wallet-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.wallet-actions button{min-width:0;min-height:44px}
+.wallet-actions #wallet-initial{grid-column:1 / -1}
+.wallet-entry .wallet-amount{font-size:17px;font-weight:700;white-space:nowrap;text-align:right}
+.wallet-positive{color:#4ade80}
+.wallet-negative{color:#f87171}
+.wallet-dialog-info{color:var(--muted);line-height:1.5;font-size:13px}
+#wallet-dialog form,#wallet-initial-dialog form{display:grid;grid-template-columns:minmax(0,1fr)}
+#wallet-dialog input,#wallet-initial-dialog input{max-width:100%;box-sizing:border-box}
+#wallet-dialog .modal-actions,#wallet-initial-dialog .modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#wallet-dialog .modal-actions button,#wallet-initial-dialog .modal-actions button{min-width:0}
+body.light .wallet-balance{background:linear-gradient(125deg,#dcfce7,#f0fdf4);border-color:#86efac;color:#166534}
+body.light .wallet-balance span,body.light .wallet-balance small{color:#166534}
+body.light .wallet-balance strong{color:#15803d}
+body.light .wallet-positive{color:#15803d}
+body.light .wallet-negative{color:#b91c1c}
