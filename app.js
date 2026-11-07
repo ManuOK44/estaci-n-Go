@@ -106,7 +106,7 @@ $('#rider-select').onchange=e=>{selectedRider=e.target.value;render()};$('#show-
 for(const key of ['mine','rider']){$('#'+key+'-date').value=today();$('#'+key+'-date').addEventListener('change',render);$('#'+key+'-today').onclick=()=>{$('#'+key+'-date').value=today();render()}}
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>showView(b.dataset.view));document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());
 document.addEventListener('click',e=>{const edit=e.target.closest('[data-edit]'),del=e.target.closest('[data-delete]');if(edit){let o=db.orders.find(x=>x.id===edit.dataset.edit);if(o)openOrder(o.riderId?'rider':'mine',o)}if(del){let o=db.orders.find(x=>x.id===del.dataset.delete);if(o&&confirm('¿Eliminar este pedido definitivamente?'))commit(()=>db.orders=db.orders.filter(x=>x.id!==o.id))}});
-const palettes=[['original','Original','#22c55e'],['blue','Azul','#3b82f6'],['purple','Morado','#a855f7'],['red','Rojo','#ef4444'],['orange','Naranja','#f97316'],['pink','Rosa','#ec4899'],['teal','Turquesa','#14b8a6']];
+const palettes=[['original','Verde','#22c55e'],['blue','Azul','#3b82f6'],['purple','Morado','#a855f7'],['red','Rojo','#ef4444'],['orange','Naranja','#f97316'],['pink','Rosa','#ec4899'],['teal','Turquesa','#14b8a6']];
 function renderAppearance(){
   const palette=palettes.some(x=>x[0]===db.palette)?db.palette:'original';
   document.body.dataset.palette=palette;
