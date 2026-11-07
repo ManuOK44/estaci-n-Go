@@ -127,13 +127,13 @@ document.addEventListener('focusout',e=>{
 
 
 /* Estadísticas: lectura de pedidos existentes; no modifica registros ni cortes. */
-const statsName=value=>String(value||'').trim().replace(/\\s+/g,' ').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLocaleLowerCase('es-MX');
+const statsName=value=>String(value||'').trim().replace(/\s+/g,' ').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es-MX');
 function renderStats(){
   const scope=$('#stats-scope').value,period=$('#stats-period').value,day=today();
   const orders=db.orders.filter(o=>(scope==='all'||(scope==='mine'?!o.riderId:!!o.riderId))&&(period==='all'||periodItems([o],day,period).length));
   const groups=new Map();
   for(const o of orders){
-    const name=String(o.business||'').trim().replace(/\\s+/g,' ')||'Sin restaurante';
+    const name=String(o.business||'').trim().replace(/\s+/g,' ')||'Sin restaurante';
     const key=statsName(name);
     if(!groups.has(key))groups.set(key,{name,count:0,amount:0,tip:0});
     const g=groups.get(key);g.count+=Number.isInteger(Number(o.count))&&Number(o.count)>0?Number(o.count):1;
