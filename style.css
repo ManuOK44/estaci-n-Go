@@ -84,3 +84,12 @@ body[data-palette]:not([data-palette="original"]) .card.wide small,body[data-pal
 body[data-palette]:not([data-palette="original"]) .stats-track div{background:var(--accent)}
 
 .settings-danger{border-top:1px solid var(--border);margin-top:24px;padding-top:4px}.settings-danger h3{color:#f87171}.settings-reset{width:100%;min-height:46px;background:#991b1b;color:#fff;border-color:#dc2626}.settings-reset:focus-visible{outline:2px solid #f87171;outline-offset:2px}
+
+/* Buscador de pedidos */
+.topbar-actions{display:flex;align-items:center;gap:7px;flex-shrink:0}
+#search-dialog{width:min(calc(100% - 28px),480px);max-height:88dvh;margin:auto}
+#search-dialog label{margin-top:16px}
+#search-results{max-height:52dvh;overflow-y:auto;margin-top:12px}
+.search-entry{align-items:center}
+.search-entry>div{min-width:0;overflow-wrap:anywhere}
+.search-entry>button{flex:none;padding:9px 11px;font-size:13px}
