@@ -36,3 +36,18 @@ body.light .wallet-balance span,body.light .wallet-balance small{color:#166534}
 body.light .wallet-balance strong{color:#15803d}
 body.light .wallet-positive{color:#15803d}
 body.light .wallet-negative{color:#b91c1c}
+
+/* Estadísticas de restaurantes */
+.tabs{flex-wrap:wrap}.tabs .tab{flex:1 1 40%;font-size:13px}
+.stats-filters{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 20px}
+.stats-filters label{min-width:0}.stats-filters select{width:100%}
+.stats-rank{background:var(--card);padding:14px;border-radius:14px;margin:9px 0}
+.stats-rank-line{display:flex;justify-content:space-between;gap:10px;align-items:baseline;font-size:13px}
+.stats-rank-line strong{overflow-wrap:anywhere}.stats-rank-line span{color:var(--muted);white-space:nowrap;font-size:12px}
+.stats-track{height:9px;border-radius:20px;background:var(--button);overflow:hidden;margin-top:10px}
+.stats-track div{height:100%;border-radius:20px;background:linear-gradient(90deg,#22c55e,#a855f7)}
+.stats-table-wrap{overflow-x:auto;border-radius:14px;background:var(--card)}
+.stats-table{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
+.stats-table th,.stats-table td{padding:12px 10px;text-align:right;border-bottom:1px solid var(--border)}
+.stats-table th:first-child,.stats-table td:first-child{text-align:left;font-weight:700}
+.stats-note{color:var(--muted);font-size:12px;line-height:1.5}
