@@ -82,3 +82,5 @@ body[data-palette="teal"] .card.wide,body[data-palette="teal"] .wallet-balance{b
 body[data-palette]:not([data-palette="original"]) .card.wide strong,body[data-palette]:not([data-palette="original"]) .wallet-balance strong{color:#fff}
 body[data-palette]:not([data-palette="original"]) .card.wide small,body[data-palette]:not([data-palette="original"]) .wallet-balance span,body[data-palette]:not([data-palette="original"]) .wallet-balance small{color:#f1f5f9}
 body[data-palette]:not([data-palette="original"]) .stats-track div{background:var(--accent)}
+
+.settings-danger{border-top:1px solid var(--border);margin-top:24px;padding-top:4px}.settings-danger h3{color:#f87171}.settings-reset{width:100%;min-height:46px;background:#991b1b;color:#fff;border-color:#dc2626}.settings-reset:focus-visible{outline:2px solid #f87171;outline-offset:2px}
