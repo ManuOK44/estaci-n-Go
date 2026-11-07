@@ -94,7 +94,7 @@ function render(){renderWallet();renderStats();document.body.classList.toggle('l
 function showView(view){$('#mine').hidden=view!=='mine';$('#riders').hidden=view!=='riders';$('#wallet').hidden=view!=='wallet';$('#stats').hidden=view!=='stats';document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('selected',x.dataset.view===view));render()}
 function openOrder(mode,order=null){orderMode=mode;editOrder=order?.id||null;$('#order-heading').textContent=order?'Editar envío':'Nuevo envío';$('#order-business').value=order?.business||'';$('#order-amount').value=order?.amount??'0';$('#order-tip').value=order?.tip??'0';$('#order-date').value=order?.date||today();$('#order-count').value=order?.count||1;$('#tip-field').hidden=mode!=='mine';preview();$('#order-dialog').showModal()}
 function preview(){let amount=Number($('#order-amount').value)||0,tip=orderMode==='mine'?Number($('#order-tip').value)||0:0;const count=Number($('#order-count').value)||1;$('#order-preview').textContent='Total del viaje: '+money(amount+tip)+' · '+count+' pedido'+(count===1?'':'s')}
-$('#order-form').addEventListener('submit',e=>{e.preventDefault();const amount=Number($('#order-amount').value),tip=orderMode==='mine'?Number($('#order-tip').value||0):0,count=Number($('#order-count').value),date=$('#order-date').value,time=editOrder?(db.orders.find(x=>x.id===editOrder)?.time||new Date().toTimeString().slice(0,5)):new Date().toTimeString().slice(0,5);if(!Number.isFinite(amount)||!Number.isFinite(tip)||amount<0||tip<0||!Number.isInteger(count)||count<1||count>100||!date||!time)return notify('Revisa los montos y la fecha.');let rid=orderMode==='mine'?null:selectedRider;if(orderMode==='rider'&&!db.riders.some(x=>x.id===rid&&!x.archived))return notify('Selecciona un repartidor activo');let record={id:editOrder||id(),riderId:rid,amount,tip,count,business:$('#order-business').value.trim(),date,time};if(commit(()=>{if(editOrder){const idx=db.orders.findIndex(x=>x.id===editOrder);if(idx>=0){record.riderId=db.orders[idx].riderId;db.orders[idx]=record}}else db.orders.push(record)})){$('#order-dialog').close();notify('Envío guardado')}});
+$('#order-form').addEventListener('submit',e=>{e.preventDefault();const amount=Number($('#order-amount').value),tip=orderMode==='mine'?Number($('#order-tip').value||0):0,count=Number($('#order-count').value),date=$('#order-date').value,time=editOrder?(db.orders.find(x=>x.id===editOrder)?.time||new Date().toTimeString().slice(0,5)):new Date().toTimeString().slice(0,5);if(!Number.isFinite(amount)||!Number.isFinite(tip)||amount<0||tip<0||!Number.isInteger(count)||count<1||count>100||!date||!time)return notify('Revisa los montos y la fecha.');let rid=orderMode==='mine'?null:selectedRider;if(orderMode==='rider'&&!editOrder&&!db.riders.some(x=>x.id===rid&&!x.archived))return notify('Selecciona un repartidor activo');let record={id:editOrder||id(),riderId:rid,amount,tip,count,business:$('#order-business').value.trim(),date,time};if(commit(()=>{if(editOrder){const idx=db.orders.findIndex(x=>x.id===editOrder);if(idx>=0){record.riderId=db.orders[idx].riderId;db.orders[idx]=record}}else db.orders.push(record)})){$('#order-dialog').close();notify('Envío guardado')}});
 $('#order-amount').addEventListener('input',preview);$('#order-tip').addEventListener('input',preview);$('#order-count').addEventListener('input',preview);
 function openRider(rider=null){editRider=rider?.id||null;$('#rider-heading').textContent=rider?'Editar repartidor':'Agregar repartidor';$('#rider-name').value=rider?.name||'';$('#rider-dialog').showModal()}
 $('#rider-form').addEventListener('submit',e=>{e.preventDefault();let name=$('#rider-name').value.trim();if(!name)return;const newId=editRider||id();if(commit(()=>{if(editRider){const r=db.riders.find(x=>x.id===editRider);if(r)r.name=name}else db.riders.push({id:newId,name,archived:false})})){selectedRider=newId;$('#rider-dialog').close();render();notify('Repartidor guardado')}});
@@ -113,6 +113,32 @@ function renderAppearance(){
   document.querySelectorAll('[data-theme-choice]').forEach(b=>{const active=b.dataset.themeChoice===db.theme;b.classList.toggle('active-choice',active);b.setAttribute('aria-pressed',String(active))});
   $('#palette-options').innerHTML=palettes.map(([key,name,color])=>'<button type="button" class="palette-option'+(key===palette?' active-choice':'')+'" data-palette="'+key+'" aria-pressed="'+(key===palette)+'"><span class="palette-dot" style="background:'+color+'"></span><span>'+name+'</span></button>').join('');
 }
+/* Buscador global de pedidos; la edición utiliza el formulario existente. */
+const searchNormalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es-MX').trim();
+function renderSearch(){
+  const query=searchNormalize($('#search-query').value);
+  const matches=db.orders.filter(o=>{
+    const rider=db.riders.find(r=>r.id===o.riderId);
+    return !query||searchNormalize([o.business||'Envío',rider?.name||'',o.date].join(' ')).includes(query);
+  }).sort((a,b)=>(b.date+'T'+(b.time||'')).localeCompare(a.date+'T'+(a.time||'')));
+  const shown=matches.slice(0,100);
+  $('#search-results').innerHTML=shown.length?shown.map(o=>{
+    const rider=db.riders.find(r=>r.id===o.riderId);
+    return '<article class="entry search-entry"><div><strong>'+safe(o.business||'Sin restaurante')+'</strong><small>'+safe(o.date)+' · '+safe(hora12(o.time))+' · '+safe(rider?.name||'Mis ganancias')+' · '+(Number(o.count)||1)+' pedido(s)</small><small>Envío '+money(o.amount)+(o.riderId?'':' · Propina '+money(o.tip))+'</small></div><button type="button" class="outline" data-search-edit="'+safe(o.id)+'">Editar</button></article>';
+  }).join(''):'<p class="empty">No se encontraron pedidos.</p>';
+  if(matches.length>shown.length)$('#search-results').insertAdjacentHTML('beforeend','<p class="settings-help">Mostrando los primeros 100 resultados. Escribe más para afinar la búsqueda.</p>');
+}
+$('#search-open').onclick=()=>{$('#search-query').value='';renderSearch();$('#search-dialog').showModal();$('#search-query').focus()};
+$('#search-close').onclick=()=>$('#search-dialog').close();
+$('#search-query').addEventListener('input',renderSearch);
+$('#search-results').addEventListener('click',e=>{
+  const button=e.target.closest('[data-search-edit]');
+  if(!button)return;
+  const order=db.orders.find(o=>o.id===button.dataset.searchEdit);
+  if(!order)return notify('No se encontró este pedido.');
+  $('#search-dialog').close();
+  openOrder(order.riderId?'rider':'mine',order);
+});
 $('#settings-open').onclick=()=>$('#settings-dialog').showModal();
 $('#settings-close').onclick=()=>$('#settings-dialog').close();
 document.querySelectorAll('[data-theme-choice]').forEach(b=>b.onclick=()=>commit(()=>{db.theme=b.dataset.themeChoice}));
