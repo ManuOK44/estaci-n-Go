@@ -119,12 +119,14 @@ document.querySelectorAll('[data-theme-choice]').forEach(b=>b.onclick=()=>commit
 $('#palette-options').addEventListener('click',e=>{const b=e.target.closest('[data-palette]');if(b&&palettes.some(x=>x[0]===b.dataset.palette))commit(()=>{db.palette=b.dataset.palette})});
 $('#export').onclick=()=>{const file=new Blob([JSON.stringify({...db,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}),url=URL.createObjectURL(file),a=document.createElement('a');a.href=url;a.download='estacion-envios-respaldo-'+today()+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)};
 $('#reset-all-data').onclick=()=>{
-  if(!confirm('¿Quieres eliminar TODOS los datos de Estación Go de este dispositivo? Se borrarán pedidos, repartidores, cortes, estadísticas y cartera. Esta acción no se puede deshacer. Recomendamos exportar un respaldo antes.'))return;
-  const answer=prompt('CONFIRMACIÓN FINAL: escribe BORRAR para eliminar todos los datos y empezar desde cero.');
+  if(!confirm('¿Quieres borrar los pedidos y cortes de Estación Go? Se eliminarán envíos, propinas, estadísticas e historial de cortes, pero se CONSERVARÁN tus repartidores, cartera y apariencia. Esta acción no se puede deshacer sin un respaldo.'))return;
+  const answer=prompt('CONFIRMACIÓN FINAL: escribe BORRAR para reiniciar pedidos y cortes, conservando repartidores y cartera.');
   if(answer!=='BORRAR'){if(answer!==null)notify('No se borró nada. Debes escribir BORRAR exactamente.');return;}
   const theme=db.theme==='light'?'light':'dark';
   const palette=palettes.some(p=>p[0]===db.palette)?db.palette:'original';
   const empty=fresh();empty.theme=theme;empty.palette=palette;
+  empty.riders=db.riders;
+  empty.wallet=db.wallet;
   try{
     localStorage.setItem(KEY,JSON.stringify(empty));
     db=empty;selectedRider='';editOrder=null;editRider=null;
@@ -132,7 +134,7 @@ $('#reset-all-data').onclick=()=>{
     $('#mine-date').value=today();$('#rider-date').value=today();
     $('#stats-period').value='week';$('#stats-scope').value='all';
     $('#settings-dialog').close();showView('mine');render();
-    notify('Datos eliminados. Estación Go está lista para empezar de nuevo.');
+    notify('Pedidos y cortes reiniciados. Repartidores y cartera conservados.');
   }catch(error){notify('No se pudieron eliminar los datos. Intenta de nuevo.');}
 };
 $('#import').onclick=()=>$('#import-file').click();$('#import-file').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const d=JSON.parse(await file.text());if(d.version!==1||!Array.isArray(d.riders)||!Array.isArray(d.orders)||d.orders.some(o=>typeof o.id!=='string'||typeof o.amount!=='number'||!Number.isFinite(o.amount)||typeof o.date!=='string'||!/^\d{4}-\d\d-\d\d$/.test(o.date))||d.riders.some(r=>typeof r.id!=='string'||typeof r.name!=='string'))throw Error('Formato incorrecto');if(!confirm('Importar reemplazará TODOS los datos actuales de esta aplicación. ¿Continuar?'))return;commit(()=>{db={version:1,riders:d.riders,orders:d.orders,cuts:Array.isArray(d.cuts)?d.cuts:[],theme:d.theme==='light'?'light':'dark',palette:palettes.some(x=>x[0]===d.palette)?d.palette:'original',wallet:d.wallet&&Number.isFinite(Number(d.wallet.initial))&&Number(d.wallet.initial)>=0&&Array.isArray(d.wallet.movements)&&d.wallet.movements.every(x=>x&&typeof x.id==='string'&&typeof x.description==='string'&&['income','expense'].includes(x.type)&&typeof x.amount==='number'&&Number.isFinite(x.amount)&&x.amount>0&&typeof x.at==='string')?{initial:Number(d.wallet.initial),movements:d.wallet.movements}:{initial:0,movements:[]}}});notify('Respaldo importado')}catch{notify('No se pudo importar el archivo. Revisa que sea un respaldo válido.')}finally{e.target.value=''}};
